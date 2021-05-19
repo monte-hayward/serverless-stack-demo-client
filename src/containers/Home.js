@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { API } from "aws-amplify";
 import { Link } from "react-router-dom";
-import { BsPencilSquare } from "react-icons/bs";
+import { BsArrowRepeat, BsPencilSquare } from "react-icons/bs";
 import ListGroup from "react-bootstrap/ListGroup";
 import { LinkContainer } from "react-router-bootstrap";
 import { useAppContext } from "../libs/contextLib";
 import { onError } from "../libs/errorLib";
+import { EventEmitter } from "../libs/eventEmitter";
+import SearchForm from "../components/SearchForm";
 import "./Home.css";
 
 export default function Home() {
   const [notes, setNotes] = useState([]);
   const { isAuthenticated } = useAppContext();
   const [isLoading, setIsLoading] = useState(true);
-
+  const [query, setQuery] = useState('');
+  EventEmitter.subscribe('queryChange', (e) => setQuery(e.target.value));
+  const lower = (text) => String.prototype.toLowerCase.call(text);
   useEffect(() => {
+
     async function onLoad() {
       if (!isAuthenticated) {
         return;
@@ -21,7 +26,11 @@ export default function Home() {
 
       try {
         const notes = await loadNotes();
-        setNotes(notes);
+        if (query) {
+          setNotes(notes.filter(({ content }) => lower(content).includes(lower(query))));
+        } else {
+          setNotes(notes);
+        }
       } catch (e) {
         onError(e);
       }
@@ -30,28 +39,32 @@ export default function Home() {
     }
 
     onLoad();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, query]);
 
   function loadNotes() {
+
     return API.get("notes", "/notes");
   }
 
+
   function renderNotesList(notes) {
+
     return (
       <>
         <LinkContainer to="/notes/new">
           <ListGroup.Item action className="py-3 text-nowrap text-truncate">
-            <BsPencilSquare size={17} />
+            <BsPencilSquare size={17}/>
             <span className="ml-2 font-weight-bold">Create a new note</span>
           </ListGroup.Item>
         </LinkContainer>
+        {isLoading && <BsArrowRepeat className="spinning"/>}
         {notes.map(({ noteId, content, createdAt }) => (
           <LinkContainer key={noteId} to={`/notes/${noteId}`}>
             <ListGroup.Item action>
               <span className="font-weight-bold">
                 {content.trim().split("\n")[0]}
               </span>
-              <br />
+              <br/>
               <span className="text-muted">
                 Created: {new Date(createdAt).toLocaleString()}
               </span>
@@ -83,11 +96,12 @@ export default function Home() {
     return (
       <div className="notes">
         <h2 className="pb-3 mt-4 mb-3 border-bottom">Your Notes</h2>
+        <SearchForm/>
         <ListGroup>{!isLoading && renderNotesList(notes)}</ListGroup>
       </div>
     );
   }
-  
+
   return (
     <div className="Home">
       {isAuthenticated ? renderNotes() : renderLander()}
