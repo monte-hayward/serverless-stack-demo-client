@@ -32,7 +32,7 @@ export default function Notes() {
           note.attachmentURL = await Storage.vault.get(attachment);
         }
 
-        setContent(content);
+        setContent(content || '');
         setNote(note);
       } catch (e) {
         onError(e);
@@ -43,7 +43,7 @@ export default function Notes() {
   }, [id]);
 
   function validateForm() {
-    return content.length > 0;
+    return content ? content.length > 0 : true;
   }
 
   function formatFilename(str) {
