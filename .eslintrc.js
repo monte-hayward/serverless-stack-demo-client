@@ -6,12 +6,16 @@ module.exports = {
     "jest": true,
   },
   "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended"
+    "react-app",
+    "react-app/jest",
+
+    // "eslint:recommended",
+    // "plugin:react/recommended"
   ],
   "parserOptions": {
     "ecmaFeatures": {
-      "jsx": true
+      "classes": true,
+      "jsx": true,
     },
     "ecmaVersion": 12,
     "sourceType": "module"
@@ -21,8 +25,25 @@ module.exports = {
     "react-hooks"
   ],
   "rules": {
-    "react-hooks/rules-of-hooks": "error", // Checks rules of Hooks
-    "react-hooks/exhaustive-deps": "warn" // Checks effect dependencies
+    "react-hooks/rules-of-hooks": "warn", // Checks rules of Hooks
+    "react-hooks/exhaustive-deps": "warn", // Checks effect dependencies
+
+    //TODO: remove these workarounds and fix the legacy code
+    "react/prop-types": [2, {
+      ignore: [
+        'children',
+        'className',
+        'appProps',
+        'disabled',
+        'component',
+        'href',
+        'stripe',
+        'stripe.createToken',
+        'isLoading',
+        'onSubmit',
+      ]
+    }],
+  "import/no-anonymous-default-export": [0],
   },
   "settings": {
     "react": {
