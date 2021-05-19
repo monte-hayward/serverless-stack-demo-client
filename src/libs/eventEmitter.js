@@ -7,6 +7,12 @@ export const EventEmitter = {
   subscribe: function (event, callback) {
     if (!this._events[event]) this._events[event] = [];
     this._events[event].push(callback);
+  },
+  unsubscribe: function (event, callback) {
+    if (!this._events[event]) {
+      return;
+    }
+    this._events[event] = this._events[event].filter(el => el !== callback);
   }
 };
 

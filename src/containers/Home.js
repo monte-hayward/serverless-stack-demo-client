@@ -14,9 +14,20 @@ export default function Home() {
   const [notes, setNotes] = useState([]);
   const { isAuthenticated } = useAppContext();
   const [isLoading, setIsLoading] = useState(true);
-  const [query, setQuery] = useState('');
-  EventEmitter.subscribe('queryChange', (e) => setQuery(e.target.value));
   const lower = (text) => String.prototype.toLowerCase.call(text);
+
+
+  const [query, setQuery] = useState('');
+  const [filterMode, setFilterMode] = useState('find');
+  useEffect(() => {
+    EventEmitter.subscribe('filterModeChange', (e) => setFilterMode(e));
+    EventEmitter.subscribe('queryChange', (e) => setQuery(e.target.value));
+    return () => {
+      EventEmitter.unsubscribe('filterModeChange', (e) => setFilterMode(e));
+      EventEmitter.unsubscribe('queryChange', (e) => setQuery(e.target.value));
+    };
+  });
+
   useEffect(() => {
 
     async function onLoad() {
@@ -48,10 +59,11 @@ export default function Home() {
 
 
   function renderNotesList(notes) {
+    const showReplaceWarning = filterMode === 'replace' && query;
 
     return (
       <>
-        <LinkContainer to="/notes/new">
+        <LinkContainer to="/notes/new" disabled={filterMode === 'replace'}>
           <ListGroup.Item action className="py-3 text-nowrap text-truncate">
             <BsPencilSquare size={17}/>
             <span className="ml-2 font-weight-bold">Create a new note</span>
@@ -60,7 +72,9 @@ export default function Home() {
         {isLoading && <BsArrowRepeat className="spinning"/>}
         {notes.map(({ noteId, content, createdAt }) => (
           <LinkContainer key={noteId} to={`/notes/${noteId}`}>
-            <ListGroup.Item action>
+            <ListGroup.Item action
+                            variant={showReplaceWarning ? 'warning' : undefined}
+            >
               <span className="font-weight-bold">
                 {content.trim().split("\n")[0]}
               </span>
@@ -96,7 +110,7 @@ export default function Home() {
     return (
       <div className="notes">
         <h2 className="pb-3 mt-4 mb-3 border-bottom">Your Notes</h2>
-        <SearchForm/>
+        <SearchForm notes={notes}/>
         <ListGroup>{!isLoading && renderNotesList(notes)}</ListGroup>
       </div>
     );
