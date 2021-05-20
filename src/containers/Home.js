@@ -14,22 +14,17 @@ export default function Home() {
   const [notes, setNotes] = useState([]);
   const { isAuthenticated } = useAppContext();
   const [isLoading, setIsLoading] = useState(true);
+
   const lower = (text) => String.prototype.toLowerCase.call(text);
-
-
   const [query, setQuery] = useState('');
-  const [filterMode, setFilterMode] = useState('find');
   useEffect(() => {
-    EventEmitter.subscribe('filterModeChange', (e) => setFilterMode(e));
     EventEmitter.subscribe('queryChange', (e) => setQuery(e.target.value));
     return () => {
-      EventEmitter.unsubscribe('filterModeChange', (e) => setFilterMode(e));
       EventEmitter.unsubscribe('queryChange', (e) => setQuery(e.target.value));
     };
   });
 
   useEffect(() => {
-
     async function onLoad() {
       if (!isAuthenticated) {
         return;
@@ -52,6 +47,7 @@ export default function Home() {
     onLoad();
   }, [isAuthenticated, query]);
 
+
   function loadNotes() {
 
     return API.get("notes", "/notes");
@@ -59,11 +55,11 @@ export default function Home() {
 
 
   function renderNotesList(notes) {
-    const showReplaceWarning = filterMode === 'replace' && query;
+    const isFiltered = Boolean(query);
 
     return (
       <>
-        <LinkContainer to="/notes/new" disabled={filterMode === 'replace'}>
+        <LinkContainer to="/notes/new" disabled={isFiltered}>
           <ListGroup.Item action className="py-3 text-nowrap text-truncate">
             <BsPencilSquare size={17}/>
             <span className="ml-2 font-weight-bold">Create a new note</span>
@@ -72,7 +68,7 @@ export default function Home() {
         {isLoading && <BsArrowRepeat className="spinning"/>}
         {notes.map(({ noteId, content, createdAt }) => (
           <LinkContainer key={noteId} to={`/notes/${noteId}`}>
-            <ListGroup.Item action variant={showReplaceWarning ? 'warning' : undefined}>
+            <ListGroup.Item action variant={isFiltered ? 'warning' : undefined}>
               <span className="font-weight-bold">
                 {content && content.trim().split("\n")[0]}
               </span>
@@ -108,7 +104,7 @@ export default function Home() {
     return (
       <div className="notes">
         <h2 className="pb-3 mt-4 mb-3 border-bottom">Your Notes</h2>
-        <SearchForm notes={notes}/>
+        <SearchForm notes={notes} reload={loadNotes}/>
         <ListGroup>{!isLoading && renderNotesList(notes)}</ListGroup>
       </div>
     );

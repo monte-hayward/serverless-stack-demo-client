@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import PropTypes from 'prop-types';
 import { API } from "aws-amplify";
 import {
@@ -10,13 +10,12 @@ import { EventEmitter } from "../libs/eventEmitter";
 import "./SearchForm.css";
 import { onError } from "../libs/errorLib";
 
-function SearchForm({notes}) {
-
+function SearchForm({ notes }) {
+  const searchFormRef = useRef(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [filterMode, setFilterMode] = useState('find');
   const [query, setQuery] = useState('');
   const [replacementText, setReplacementText] = useState('');
-  const [showReplaceWarning, setShowReplaceWarning] = useState(false);
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [showReplacementConfirmText, setShowReplacementConfirmText] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [replaceDone, setReplaceDone] = useState(false);
@@ -26,7 +25,6 @@ function SearchForm({notes}) {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    handleQueryChange(event);
   }
 
   async function handleQueryChange(event) {
@@ -45,7 +43,6 @@ function SearchForm({notes}) {
 
   async function handleFilterModeChange(event) {
     setIsLoading(true);
-    setFilterMode(event);
     if (event === 'find') {
       handleReplacementTextChange({ target: { value: '' } })
     }
@@ -53,23 +50,27 @@ function SearchForm({notes}) {
     setIsLoading(false);
   }
 
-  async function handleReplacementWarningClose() {
-    setShowReplaceWarning(false);
+  async function handleReplacementModalClose() {
+    setShowReplaceModal(false);
+    searchFormRef.current.reset();
   }
-  async function handleReplaceSubmit(event) {
+
+  async function handleReplaceClick(event) {
     event.preventDefault();
-    setShowReplaceWarning(true);
-    setShowReplacementConfirmText(true);
+    setShowReplaceModal(true);
+    if(query) {
+      setShowReplacementConfirmText(true);
+    }
   }
+
   async function replaceAllInstances() {
-    // query, replacementText
     const queue = notes.slice();
     const count = queue.length;
 
-    for(let i = 0; i < count; i++) {
+    for (let i = 0; i < count; i++) {
       const draft = Object.assign({}, queue.pop());
-      const {noteId} = draft;
-      let {content} = draft;
+      const { noteId } = draft;
+      let { content } = draft;
       const re = new RegExp(query, 'gi');
       content = String(content).replace(re, replacementText);
       draft.content = content;
@@ -77,31 +78,39 @@ function SearchForm({notes}) {
         await API.put("notes", `/notes/${noteId}`, {
           body: draft,
         });
-      } catch(error) {
+      } catch (error) {
         setReplaceError(error);
         onError(error);
       }
     }
     return count;
   }
+
   async function handleReplaceModalConfirm(event) {
     event.preventDefault();
     setShowReplacementConfirmText(false);
     setReplacing(true);
     const count = await replaceAllInstances();
     setReplacing(false);
-    setReplaceDone(true);
     setReplaceCount(count);
+    setReplaceDone(true);
+    setShowReplaceModal(false);
+    setQuery('');
+    EventEmitter.dispatch('queryChange', event);
+    setReplacementText('');
   }
-  async function clearError(){
+  async function reset(event){
+    await setQuery('');
+    EventEmitter.dispatch('queryChange', event);
+    setReplacementText('');
+  }
+  async function clearError() {
     setReplaceError(null);
   }
 
-  const disableReplaceSubmit = filterMode !== 'replace' || !query;
-
   return (
     <div className="SearchForm">
-      <Form onSubmit={handleSubmit}>
+      <Form onSubmit={handleSubmit} ref={searchFormRef}>
         <Form.Group>
           <InputGroup className="mb-3">
             <Form.Control
@@ -112,89 +121,101 @@ function SearchForm({notes}) {
               aria-describedby="basic-addon2"
               className="QueryInput"
             />
-            {filterMode === 'replace' &&
-            <Form.Control
-              name="replacementText"
-              placeholder="Replacement Text"
-              aria-label="Replacement Text"
-              onChange={handleReplacementTextChange}
-              aria-describedby="basic-addon2"
-            />
-            }
             <InputGroup.Append>
               <Button
                 type="reset"
                 variant="light"
                 className="ClearButton"
+                onClick={reset}
               >x</Button>
             </InputGroup.Append>
 
-            <ToggleButtonGroup
-              name="filterMode"
-              onChange={handleFilterModeChange}
-              type="radio"
-              as={InputGroup.Append}
-              variant="outline-secondary"
-              id="input-group-dropdown-2"
-            >
-              <ToggleButton value="find" variant="secondary">Find</ToggleButton>
-              <ToggleButton value="replace" variant="secondary">Replace</ToggleButton>
-            </ToggleButtonGroup>
-
             <InputGroup.Append>
-              <Button
-                type="submit"
-                onClick={handleReplaceSubmit}
-                disabled={disableReplaceSubmit}
-              >Submit</Button>
+              <ToggleButtonGroup
+                name="filterMode"
+                type="radio"
+                onChange={handleFilterModeChange}
+                as={InputGroup.Append}
+                variant="outline-secondary"
+                id="input-group-dropdown-2"
+              >
+                <ToggleButton
+                  value="find"
+                  variant="secondary"
+                  onClick={handleSubmit}
+                >
+                  Find
+                </ToggleButton>
+                <ToggleButton
+                  value="replace"
+                  onClick={handleReplaceClick}
+                  variant="secondary">Replace</ToggleButton>
+              </ToggleButtonGroup>
             </InputGroup.Append>
-
           </InputGroup>
         </Form.Group>
       </Form>
 
       {isLoading && <BsArrowRepeat className="spinning"/>}
-      {showReplaceWarning && 'hello'}
-      <Modal>
-        <Alert key="replaceAlertControl" variant="danger" dismissible onClose={handleReplacementWarningClose}>
-          Replace instances of &quot;{query}&quot; with &quot;{replacementText}&quot;?{' '}
-          <Alert.Link href="#" variant="danger">Confirm</Alert.Link>{' '}
-          <Alert.Link href="#">Cancel</Alert.Link>
-        </Alert>
-      </Modal>
 
-      <Modal show={showReplaceWarning} onHide={handleReplacementWarningClose}>
+      <Modal show={showReplaceModal} onHide={handleReplacementModalClose}>
         <Modal.Header closeButton>
           <Modal.Title>Replace All Instances</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {showReplacementConfirmText &&
-            <span>Modify all your Notes that have instances of &quot;{query}&quot;,
-            replacing with &quot;{replacementText}&quot;?</span>
+          {showReplacementConfirmText && query &&
+          <span>
+            Modify all your Notes that have instances of &quot;{query}&quot;,
+            replacing with &quot;{replacementText}&quot;?
+          </span>
           }
+          <Form onSubmit={handleSubmit} ref={searchFormRef}>
+            <Form.Group>
+              <InputGroup className="mb-3">
+                <Form.Control
+                  value={query || ''}
+                  type="text"
+                  placeholder="Text to Search"
+                  aria-label="Text to Search"
+                  onChange={handleQueryChange}
+                  aria-describedby="basic-addon2"
+                  className="QueryInput"
+                />
+
+                <Form.Control
+                  name="replacementText"
+                  placeholder="Replacement Text"
+                  aria-label="Replacement Text"
+                  onChange={handleReplacementTextChange}
+                  aria-describedby="basic-addon2"
+                />
+              </InputGroup>
+            </Form.Group>
+          </Form>
+
           {replacing &&
-            <>
-              <Spinner animation="border">
-                <span className="sr-only">Replacing...</span>
-              </Spinner>
-              <span>Replacing all instances of &quot;{query}&quot;
+          <>
+            <Spinner animation="border">
+              <span className="sr-only">Replacing...</span>
+            </Spinner>
+            <span>Replacing all instances of &quot;{query}&quot;
               with &quot;{replacementText}&quot; ...</span>
-            </>
+          </>
           }
           {replaceDone && !replaceError &&
-            <span>{replaceCount ? `${replaceCount} Notes have been updated` : null}</span>
+          <span>{replaceCount ? `${replaceCount} Notes have been updated` : null}</span>
           }
           {replaceError && replaceDone &&
-            <Alert variant="danger" onClose={clearError} dismissible>
-              <Alert.Heading>An error occurred.</Alert.Heading>
-              <p>
-                ${replaceError}
-              </p>
-            </Alert>
+          <Alert variant="danger" onClose={clearError} dismissible>
+            <Alert.Heading>An error occurred.</Alert.Heading>
+            <p>
+              ${replaceError}
+            </p>
+          </Alert>
           }
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={handleReplacementWarningClose}>
+          <Button variant="secondary" onClick={handleReplacementModalClose}>
             Cancel
           </Button>
           <Button variant="primary" onClick={handleReplaceModalConfirm} disabled={replaceDone}>
@@ -208,8 +229,10 @@ function SearchForm({notes}) {
 
   );
 }
+
 SearchForm.propTypes = {
   notes: PropTypes.arrayOf(PropTypes.object),
+  reload: PropTypes.func.isRequired,
 };
 
 export default SearchForm;
