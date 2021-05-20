@@ -1,0 +1,11 @@
+.ClearButton {
+    background: transparent;
+
+    border-top-color: #CED3D9;
+    border-bottom-color: #CED3D9;
+    border-left-color: transparent;
+    border-left: 0 none;
+}
+.QueryInput {
+    border-right: none;
+}

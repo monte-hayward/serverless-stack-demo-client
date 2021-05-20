@@ -7,6 +7,7 @@ import { onError } from "../libs/errorLib";
 import { s3Upload } from "../libs/awsLib";
 import config from "../config";
 import "./Notes.css";
+import { BsArrowRepeat } from "react-icons/bs";
 
 export default function Notes() {
   const file = useRef(null);
@@ -31,7 +32,7 @@ export default function Notes() {
           note.attachmentURL = await Storage.vault.get(attachment);
         }
 
-        setContent(content);
+        setContent(content || '');
         setNote(note);
       } catch (e) {
         onError(e);
@@ -42,7 +43,7 @@ export default function Notes() {
   }, [id]);
 
   function validateForm() {
-    return content.length > 0;
+    return content ? content.length > 0 : true;
   }
 
   function formatFilename(str) {
@@ -119,6 +120,7 @@ export default function Notes() {
 
   return (
     <div className="Notes">
+      {isLoading && <BsArrowRepeat className="spinning" />}
       {note && (
         <Form onSubmit={handleSubmit}>
           <Form.Group controlId="content">
